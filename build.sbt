@@ -2,7 +2,9 @@ name := """akka-sample-persistence-scala"""
 
 version := "2.3.10"
 
-scalaVersion := "2.10.4"
+scalaVersion := "2.11.6"
+
+libraryDependencies += "com.lihaoyi" %% "upickle" % "0.3.4"
 
 libraryDependencies ++= {
   val akkaHttpVersion = "1.0-RC4"
@@ -14,6 +16,8 @@ libraryDependencies ++= {
     "org.java-websocket" % "Java-WebSocket" % "1.3.0"
   )
 }
+
+
 
 
 

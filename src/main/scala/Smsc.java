@@ -1,7 +1,7 @@
 /*
  * SMSC.RU API (smsc.ru) версия 1.1 (24.08.2012) smsc's sms sender package
  */
-package models;
+
 
 import java.io.*;
 import java.net.MalformedURLException;

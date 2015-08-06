@@ -1,3 +1,5 @@
+import java.util.Calendar
+
 import akka.actor.ActorSystem
 import akka.http.javadsl.server.Directives
 import akka.http.scaladsl.Http
@@ -6,18 +8,25 @@ import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server._
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Flow
+import upickle.default._
+import akka.util.Timeout
 
-import scala.io.StdIn
+
+import akka.actor._
+
+import akka.pattern.ask
+import akka.util.Timeout
+
+import scala.concurrent.Await
+
 
 
 object Server extends App {
-  val system = ActorSystem("mySystem")
+
+  println(write(ClientPhoneInPut("e")))
+  println(write(ClientLogin("e", 94959)))
 
   val server = new Server()
-  val testUser = system.actorOf(UserActor.props("000", server), "test")
-
-
-  //testUser ! Register(1234)
 
   readLine()
   server.close()
@@ -26,7 +35,7 @@ object Server extends App {
 class Server {
   implicit val actorSystem = ActorSystem("akka-system")
   implicit val flowMaterializer = ActorMaterializer()
-
+  val system = ActorSystem("mySystem")
   val interface = "localhost"
   val port = 8080
 
@@ -40,67 +49,39 @@ class Server {
     case _ => TextMessage("Message type unsupported")
   }
 
-  def getRoute(): Route = path("ws") {
+  def getRoute(): Route = path("registration") {
     get {
       handleWebsocketMessages(echoService)
     }
   }
 
   def handleWebSocketMessage(message: String): String = {
-    "echo: " + message
+    println("Server received message: " + message)
+    implicit val timeout = Timeout(5000)
+    val clientMessage = read[ClientWSMessage](message)
+    clientMessage match {
+      case phoneRequestMessage@ClientPhoneInPut(phone: String) => {
+
+        val future = system.actorOf(UserActor.props(phone)) ? phoneRequestMessage
+        val result = Await.result(future, timeout.duration).asInstanceOf[ServerWSMessage]
+        println("Actor answer : " + result)
+        return write(result)
+      }
+
+      case loginMessage@ClientLogin(phone: String, password: Int) => {
+        val future = system.actorOf(UserActor.props(phone)) ? loginMessage
+        val result = Await.result(future, timeout.duration).asInstanceOf[ServerWSMessage]
+        return write(result)
+      }
+
+      case _Any => {
+        println("Wrong ClientWSMessage")
+        throw new Exception("Wrong ClientWSMessage")
+      }
+    }
+
+
   }
-
-
-//  // commands
-//  val REGISTER_COMMAND = "REGISTER_COMMAND"
-//  val ERROR_COMMAND = "ERROR_COMMAND"
-//  val NOTIFICATION_COMMAND = "NOTIFICATION_COMMAND"
-//
-//  def getAnswer(messageString: String): String = {
-//    val json: JsValue = Json.parse(messageString)
-//
-//    val command = (json \ "command").as[String]
-//
-//    command match {
-//      case REGISTER_COMMAND => {
-//        val phone = (json \ "phone").as[String]
-//
-//        if (isAllowablePhoneNumber(phone) == false) {
-//          return errorAnswer("Phone " + phone + " was used too many times.")
-//        }
-//
-//        else {
-//          println("sending message...")
-//          val sms = new Smsc()
-//          val password = 4242 //  gen.random?
-//          val message = "Ваш пароль: " + password
-//
-//          val serviceAnswer = sms.send_sms(phone, message, 0, "", "1", 0, "mbabaev", "")
-//
-//          if (serviceAnswer.length == 4) {
-//            // TODO: add phone + password to database
-//          }
-//          else {
-//            errorAnswer("Sms cannot be send")
-//          }
-//
-//          return notificationAnswer("Wait for SMS message with security code!")
-//        }
-//      }
-//
-//      case _ =>
-//        println("Unknown command! " + command)
-//        return errorAnswer("Unknown command! " + command)
-//    }
-
-  def isAllowablePhoneNumber(phoneNumber: String): Boolean = {
-
-    //TODO: check is phone number spam, was phone registered, etc...
-
-    return true
-  }
-
-
 
   def close(): Unit = {
     import actorSystem.dispatcher
@@ -110,3 +91,6 @@ class Server {
 
   }
 }
+
+
+
