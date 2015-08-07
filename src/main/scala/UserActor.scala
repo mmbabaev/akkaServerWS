@@ -6,6 +6,7 @@ import java.util.{Calendar, Date}
 import akka.actor._
 import akka.persistence._
 
+import scala.concurrent.Future
 import scala.util.Random
 
 
@@ -59,6 +60,7 @@ class UserActor(phone: String) extends PersistentActor {
     case event: Event =>
       println("receiveRecover")
       state.update(event)
+
     case SnapshotOffer(_, snapshot: UserState) => state = snapshot
   }
 
@@ -69,7 +71,7 @@ class UserActor(phone: String) extends PersistentActor {
     override def receive = {
 
       case ClientPhoneInPut(phone: String) => {
-        if (state.isTodayDate == false) {
+        if (!state.isTodayDate) {
           state = UserState(state.password, 0, Calendar.getInstance().getTime)
         }
         if (state.isSMSLimitExceeded()) {
@@ -82,7 +84,10 @@ class UserActor(phone: String) extends PersistentActor {
             context.system.eventStream.publish(event)
             saveSnapshot(state)
           }
-          //val serviceAnswer = sms.send_sms(phone, "Your password:" + state.password , 0, "", "1", 0, "iDecide", "")
+//          Future {
+//            val serviceAnswer = sms.send_sms(phone, "Your password: " + state.password , 1, "", "", 0, "iDecide", "")
+//            println(serviceAnswer.length)
+//          }
           //TODO: Handle SMSc server error
           println("new pass =  " + state.password)
           println("SMS was sent")
@@ -104,9 +109,14 @@ class UserActor(phone: String) extends PersistentActor {
         }
       }
 
+      case ServerSuccessPhone()      => println("ServerSuccessPhone")
+      case a: ServerError             => println("ServerError")
+      case ServerSuccessRegistration() => println("ServerSuccessRegistration")
+
+      case m: SaveSnapshotSuccess => println("snapshot was made successfully")
+      case m: SaveSnapshotFailure => println()
 
 
-      case _ => println("WTF")
     }
 
 
